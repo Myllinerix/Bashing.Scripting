@@ -1,5 +1,5 @@
 # Bashing.Scripting
-Some little scripts to help file logistics and management in Linux system. But in fact, it way less cool, then it sounds.
+Little scripts to help with file logistics in your Linux system.
 
 There are two scripts:
 One to easily mount All existing unmounted partitions in the system (, that have a size at least of 1GB);
