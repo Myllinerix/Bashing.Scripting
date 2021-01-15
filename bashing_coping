@@ -1,0 +1,85 @@
+#!/bin/bash
+
+if [[ $(/usr/bin/id -u) -ne 0 ]]; then
+	echo "Please, run script as a root. Exiting..."
+	exit
+fi
+
+echo "Source Directory: "
+read source_dir
+dist_dir=""
+
+add_another_disk=1
+while [ $add_another_disk -eq 1 ]; do
+	echo "Distination Directory: "
+	read new_dist_dir
+	new_dist_dir=$(echo "$new_dist_dir" | tr " " "\\\ ")
+	dist_dir="$dist_dir $new_dist_dir"
+	echo "Add another disk? (y/n)"
+	read yes_or_no
+
+	correct_input=0
+	while [ $correct_input -eq 0 ]; do
+		#echo "trees are nice"
+		if [ -n "$yes_or_no" ]; then
+			if [ "${yes_or_no,,}" = "n" ]; then
+				add_another_disk=0
+				correct_input=1
+			elif [ "${yes_or_no,,}" = "y" ]; then
+				correct_input=1
+			else
+				echo "Please enter a \"y\" or \"n\""
+				read yes_or_no
+			fi
+		else
+			echo "Please enter a \"y\" or \"n\""
+			read yes_or_no
+		fi
+	done
+done
+
+out_outputvar () {
+	echo "\"$1\"" 
+	echo "---------------------------------------------------------------"
+}
+
+#echo "---------------------------------------------------------------"
+
+for file_name in "$source_dir"/*
+do
+	success=0
+	for value in $dist_dir
+	do
+		#echo $value
+		value=$(echo "$value" | sed "s/\\/ /")
+		outputvar=$(df "$value")
+		#out_outputvar "$outputvar"
+		outputvar=$(echo "$outputvar" | grep "/")
+		outputvar=$(echo "$outputvar" | grep -o " [0-9]*")
+		outputvar=$(echo "$outputvar" | tr -d "\n")
+		outputvar=$(echo "$outputvar" | sed "s/ *[0-9][0-9]* *//")
+		outputvar=$(echo "$outputvar" | sed "s/ *[0-9][0-9]* *//")
+		outputvar=$(echo "$outputvar" | sed "s/ .*//")
+		#out_outputvar "$outputvar"
+		
+		echo ".-$file_name-."
+		current_file_size=$(du -s "$file_name") 
+		echo ".-$file_name-."
+		current_file_size=$(echo "$current_file_size" | sed "s/[^0-9].*//")
+		echo ".-$current_file_size-."
+
+		if [ "$outputvar" -gt "$current_file_size" ]
+		then
+			echo "$file_name"
+			echo "$value"
+			sudo mv -v "$file_name" "$value"
+			success=1
+			break
+		else
+			echo "$file_name is too big! $current_file_size is more then $outputvar"
+		fi
+	done
+	if [ $success -eq 0 ]; then
+		echo "There was not enough space on any of disks; skipping file."
+	fi
+done
