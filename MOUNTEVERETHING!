@@ -3,8 +3,7 @@
 lsblk_var=
 volumegroup_name=
 
-if $(sudo vgscan | grep -q Found)
-then
+if $(sudo vgscan | grep -q Found); then
 	volumegroup_name=$(sudo vgscan | grep -o "\".*\"" | tr -d "\"")
 	sudo vgchange -ay $volumegroup_name
 	lsblk_var=$(lsblk | perl -0777 -pe 's/part \n  .*lvm/ /igs')
@@ -15,31 +14,33 @@ fi
 lsblk_var=$(echo "$lsblk_var" | grep part | grep -v / | grep -v M | grep -o "sd.* " | sed "s/ .*//")
 #echo "$lsblk_var"
 
-for value in $lsblk_var
-do
-	if $(ls /mnt | grep -q $value); then
-		echo "There was found an existing directory $value in /mnt; adding a current date to the new directory to not interfere."
-		new_value="${value}_$(date +'%Y.%m.%d.%T')"
+if [ -n "$lsblk_var" ]; then
+	for value in $lsblk_var
+	do
+		innitial_value=$value
+		if $(ls /mnt | grep -q $value); then
+			echo "There was found an existing directory $value in /mnt; adding a current date to the new directory to not interfere."
+			new_value="${value}_$(date +'%F.%H.%M.%S')"
+			lsblk_var=$(echo "$lsblk_var" | sed "s/$value/$new_value/")
+			value=$new_value
+		fi
+		sudo mkdir /mnt/$value
+		sudo mount /dev/$innitial_value /mnt/$value
+		if [ $? -eq 0 ]; then
+			echo "Mounted /dev/$value on /mnt/$value."
+		else
+			echo "There was some errors, probably you should check them out."
+		fi
+	done
+fi
+
+if [ -n "$volumegroup_name" ]; then
+	if $(ls /mnt | grep -q $volumegroup_name); then
+		echo "There was found an existing directory $volumegroup_name in /mnt; adding a current date to the new directory to not interfere."
+		new_volumegroup_name="${volumegroup_name}_$(date +'%Y.%m.%d.%T')"
 		lsblk_var=$(echo "$lsblk_var" | tr "$value" "$new_value")
 		value=$new_value
 	fi
-	sudo mkdir /mnt/$value
-	sudo mount /dev/$value /mnt/$value
-	if [ $? -eq 0 ]; then
-		echo "Mounted /dev/$value on /mnt/$value."
-	else
-		echo "There was some errors, probably you should check them out."
-	fi
-done
-
-if [ -n $volumegroup_name ]
-then
-	#if $(ls /mnt | grep -q $volumegroup_name); then
-	#	echo "There was found an existing directory $volumegroup_name in /mnt; adding a current date to the new directory to not interfere."
-	#	new_volumegroup_name="${volumegroup_name}_$(date +'%Y.%m.%d.%T')"
-	#	lsblk_var=$(echo "$lsblk_var" | tr "$value" "$new_value")
-	#	value=$new_value
-	#fi
 	sudo mkdir /mnt/$volumegroup_name
 	for fullpath in "/dev/$volumegroup_name"/*
 	do
@@ -55,12 +56,11 @@ read vaiting_for_input
 
 for value in $lsblk_var
 do
-	sudo umount -v /dev/$value
+	sudo umount -v /mnt/$value
 	sudo rmdir /mnt/$value
 done
 
-if [ -n $volumegroup_name ]
-then
+if [ -n "$volumegroup_name" ]; then
 	for fullpath in "/dev/$volumegroup_name"/*
 	do
 		localpath=$(echo "$fullpath" | sed "s/dev\/.*\///")
@@ -71,4 +71,11 @@ then
 	sudo vgchange -an $volumegroup_name
 fi
 
+successful_unmount=0
 for value in $lsblk_var
+do
+	if $(ls /mnt | grep -q $value); then
+		echo "It seems like the mount point $value is still in use. Want to try to unmount it once again?"
+		
+	fi	
+done
